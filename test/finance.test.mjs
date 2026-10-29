@@ -159,3 +159,55 @@ test('rejeita datas inexistentes e impede acesso a registros de outra pessoa', a
   });
   assert.equal(forbidden.response.status, 404);
 });
+
+test('importa CSV em lote de forma transacional e calcula os saldos', async () => {
+  const session = await createUser('importacao@example.com');
+  const { data: account } = await request('/api/contas', {
+    method: 'POST', session,
+    body: { name: 'Conta planilha', type: 'Conta bancária', initial_balance: 500, reference_date: '2026-01-01' }
+  });
+  const imported = await request('/api/importacao', {
+    method: 'POST', session,
+    body: { movements: [
+      { type: 'receita', description: 'Salário importado', category: 'Salário', amount: '1780', account_id: account.id },
+      { type: 'despesa', description: 'Cartão Nubank', category: 'Cartão de crédito', amount: '600', account_id: account.id }
+    ] }
+  });
+  assert.equal(imported.response.status, 201);
+  assert.equal(imported.data.imported, 2);
+  const { data: summary } = await request(`/api/resumo?mes=${new Date().toISOString().slice(0, 7)}`, { session });
+  assert.equal(summary.income_cents, 178000);
+  assert.equal(summary.expenses_cents, 60000);
+  assert.equal(summary.available_cents, 168000);
+
+  const rejected = await request('/api/importacao', {
+    method: 'POST', session,
+    body: { movements: [
+      { type: 'despesa', description: 'Validação inicial', category: 'Outras despesas', amount: '10', account_id: account.id },
+      { type: 'movimentacao-invalida', description: 'Inválida', category: 'Outras despesas', amount: '1', account_id: account.id }
+    ] }
+  });
+  assert.equal(rejected.response.status, 400);
+  const { data: rows } = await request('/api/movimentacoes', { session });
+  assert.equal(rows.length, 2);
+});
+
+test('exige autenticação e token CSRF para importar lançamentos', async () => {
+  const anonymous = await request('/api/importacao', {
+    method: 'POST',
+    body: { movements: [{ type: 'despesa', description: 'Não autorizada', category: 'Outras despesas', amount: '1', account_id: 1 }] }
+  });
+  assert.equal(anonymous.response.status, 401);
+
+  const session = await createUser('seguranca-importacao@example.com');
+  const { data: account } = await request('/api/contas', {
+    method: 'POST', session,
+    body: { name: 'Conta privada', type: 'Conta bancária', initial_balance: 0, reference_date: '2026-01-01' }
+  });
+  const withoutCsrf = await request('/api/importacao', {
+    method: 'POST',
+    session: { cookie: session.cookie, csrf: 'incorreto' },
+    body: { movements: [{ type: 'despesa', description: 'Não autorizada', category: 'Outras despesas', amount: '1', account_id: account.id }] }
+  });
+  assert.equal(withoutCsrf.response.status, 403);
+});

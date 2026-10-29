@@ -49,6 +49,7 @@ Execute `npm test`. Os testes usam um banco temporário separado e verificam per
 - Cadastro e edição de contas, receitas, despesas e movimentações; filtros por data e situação; exportação do histórico em CSV.
 - Página inicial "Meu controle financeiro" com entradas separadas de despesas essenciais e demais despesas, totais mensais calculados e inclusão rápida de registros. Nenhum exemplo da planilha é inserido automaticamente.
 - Opção "Planilha" no menu para registrar entradas, identificar contas e despesas pelo nome (por exemplo, água, luz ou cartão), e acompanhar os totais gastos, recebidos e o dinheiro disponível no mês.
+- Importação de arquivos CSV com sessão protegida e operação em lote transacional. O arquivo privado da planilha fornecida, quando presente, fica na pasta `data/`, que é ignorada pelo Git e não é publicada no repositório.
 - Transferências entre contas que não são contabilizadas como receita ou despesa.
 - Cadastro de investimentos, valores de mercado informados manualmente, aportes, resgates e rendimentos separados.
 - Painel, histórico mensal, orçamento por categoria, metas financeiras e relatórios calculados a partir dos dados cadastrados.
@@ -90,12 +91,14 @@ A API usa JSON, exceto a rota de exportação. Depois de criar uma conta ou entr
 
 Filtros de movimentações disponíveis: `inicio`, `fim`, `tipo`, `situacao` e `categoria`.
 
+A rota `POST /api/importacao` aceita um objeto `{ "movements": [...] }` com até 100 receitas ou despesas. Cada registro deve conter `type`, `description`, `category`, `amount` e `account_id`; `date` pode ser omitida (nesse caso, usa-se a data da importação) e `status` assume `paga`. Toda a importação é confirmada em uma única transação; se uma linha falhar na validação, nenhum registro do lote é salvo.
+
 ## Cópias de segurança
 
 Encerre o servidor antes de copiar o banco, ou use uma ferramenta de backup compatível com SQLite. Faça cópias regulares de `data/financas.sqlite` e guarde-as em local seguro, separado do dispositivo principal. Teste periodicamente a restauração de uma cópia. O CSV exportado contém movimentações, mas não substitui o backup do banco completo.
 
 ## Limitações conhecidas
 
-- A área de cartões de crédito informa que o controle ainda não está disponível; não são simuladas compras ou faturas.
+- A área de cartões de crédito ainda não está disponível; não são simuladas compras ou faturas.
 - O CSV exporta movimentações; a exportação em PDF, integração bancária e sincronização de cotações não foram implementadas.
 - O sistema não envia alertas externos e não cria automaticamente lançamentos recorrentes futuros.

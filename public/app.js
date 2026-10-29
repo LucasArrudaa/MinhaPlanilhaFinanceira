@@ -165,7 +165,7 @@ async function renderSpreadsheet() {
     ${metric('Dinheiro restante no mês', money(monthResult), '◷', 'Entradas menos gastos', monthResult < 0 ? 'negative' : 'positive')}
     ${metric('Dinheiro disponível', money(summary.available_cents), '◉', 'Saldo atual das suas contas', summary.available_cents < 0 ? 'negative' : '')}
   </div>`;
-  pageContent.innerHTML = heading('Planilha', 'Registre entradas e gastos e acompanhe o dinheiro disponível.', `<div class="sheet-actions">${monthInput()}<button class="button" id="new-account">＋ Adicionar conta financeira</button></div>`) +
+  pageContent.innerHTML = heading('Planilha', 'Registre entradas e gastos e acompanhe o dinheiro disponível.', `<div class="sheet-actions">${monthInput()}<button class="button" id="new-account">＋ Adicionar conta financeira</button><button class="button" id="import-spreadsheet">↑ Importar CSV</button></div>`) +
     `<div class="finance-columns">${incomePanel}${expensePanel}</div>${summaryCards}`;
 }
 
@@ -212,6 +212,23 @@ function drawChart(data) {
     ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--muted');
     ctx.textAlign = 'center'; ctx.fillText(item.month.slice(5), x, height - 12);
   });
+
+  async function importSpreadsheet() {
+    accounts = await api('/api/contas');
+    if (!accounts.length) {
+      notify('Cadastre uma conta financeira antes de importar os lançamentos.', true);
+      return;
+    }
+    const fields = `<label class="wide">Conta para os lançamentos<select name="account_id" required>${accountOptions()}</select></label>
+      <label class="wide">Arquivo CSV<input name="file" type="file" accept=".csv,text/csv" required><small>Colunas obrigatórias: tipo; descrição; categoria; valor. Datas podem ficar em branco e serão registradas na data da importação.</small></label>`;
+    openDialog('Importar planilha CSV', fields, 'Importar lançamentos', async (body) => {
+      const file = dataForm.elements.file.files[0];
+      if (!file) throw new Error('Escolha um arquivo CSV para importar.');
+      if (file.size > 1_000_000) throw new Error('O arquivo ultrapassa o limite de 1 MB.');
+      const movements = parseImportCsv(await file.text()).map((item) => ({ ...item, account_id: body.account_id }));
+      return api('/api/importacao', { method: 'POST', body: JSON.stringify({ movements }) });
+    });
+  }
 }
 
 async function renderMovements(type) {
@@ -304,6 +321,54 @@ function optionList(items, selected = '') {
 }
 function accountOptions(selected = '') {
   return `<option value="">Selecione uma conta</option>${accounts.map((account) => `<option value="${account.id}" ${String(account.id) === String(selected) ? 'selected' : ''}>${esc(account.name)}</option>`).join('')}`;
+}
+function parseCsvLine(line, delimiter) {
+  const cells = [];
+  let cell = '';
+  let quoted = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const character = line[index];
+    if (character === '"' && quoted && line[index + 1] === '"') {
+      cell += '"';
+      index += 1;
+    } else if (character === '"') {
+      quoted = !quoted;
+    } else if (character === delimiter && !quoted) {
+      cells.push(cell.trim());
+      cell = '';
+    } else {
+      cell += character;
+    }
+  }
+  cells.push(cell.trim());
+  if (quoted) throw new Error('O arquivo CSV contém aspas sem fechamento.');
+  return cells;
+}
+function parseImportCsv(text) {
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) throw new Error('O arquivo CSV não contém linhas para importar.');
+  const delimiter = (lines[0].match(/;/g) || []).length >= (lines[0].match(/,/g) || []).length ? ';' : ',';
+  const headers = parseCsvLine(lines.shift(), delimiter).map((header) => header.trim().toLocaleLowerCase('pt-BR'));
+  const columns = Object.fromEntries(headers.map((header, index) => [header, index]));
+  for (const required of ['tipo', 'descricao', 'categoria', 'valor']) {
+    if (!(required in columns)) throw new Error(`O arquivo precisa ter uma coluna "${required}".`);
+  }
+  return lines.map((line) => {
+    const values = parseCsvLine(line, delimiter);
+    const value = (column) => columns[column] == null ? '' : values[columns[column]] || '';
+    const amount = value('valor').replace(/R\$\s*/gi, '').replace(/\s/g, '').replace(/\.(?=\d{3}(?:,|$))/g, '').replace(',', '.');
+    const type = value('tipo').toLocaleLowerCase('pt-BR');
+    if (!['receita', 'despesa'].includes(type)) throw new Error(`Tipo inválido na importação: "${value('tipo')}". Use receita ou despesa.`);
+    return {
+      type,
+      description: value('descricao'),
+      category: value('categoria'),
+      amount,
+      date: value('data'),
+      status: value('situacao') || value('status') || 'paga',
+      notes: value('observacoes')
+    };
+  });
 }
 function openDialog(title, fields, submitLabel, onSubmit, recordId = '') {
   dataForm.innerHTML = `<div class="form-inner"><div class="form-top"><h2>${title}</h2><button class="icon-button" type="button" data-close-dialog aria-label="Fechar">×</button></div><div class="form-grid">${fields}</div><div class="form-footer"><button class="button" type="button" data-close-dialog>Cancelar</button><button class="button button-primary" type="submit">${submitLabel}</button></div></div>`;
@@ -399,6 +464,7 @@ document.addEventListener('click', async (event) => {
   if (target.classList.contains('new-movement') || target.dataset.newType) await movementForm(target.dataset.newType || '');
   if (target.id === 'spreadsheet-expense') await movementForm('despesa', {}, 'Nome da conta ou despesa');
   if (target.id === 'new-account') { accounts = await api('/api/contas'); await accountForm(); }
+  if (target.id === 'import-spreadsheet') await importSpreadsheet();
   if (target.id === 'new-investment') investmentForm();
   if (target.id === 'new-goal') goalForm();
   if (target.dataset.editGoal) {

@@ -246,6 +246,26 @@ async function route(req, res) {
     const body = await parseBody(req);
     return json(res, 201, saveMovement(user.id, body), {});
   }
+  if (path === '/api/importacao' && req.method === 'POST') {
+    const body = await parseBody(req);
+    if (!Array.isArray(body.movements) || body.movements.length < 1 || body.movements.length > 100) {
+      throw fail(400, 'Envie entre 1 e 100 movimentações para importar.');
+    }
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      const imported = body.movements.map((item) => saveMovement(user.id, {
+        ...item,
+        date: item.date || todayInBrazil(),
+        status: item.status || 'paga',
+        notes: item.notes || 'Importado de arquivo CSV.'
+      }));
+      db.exec('COMMIT');
+      return json(res, 201, { imported: imported.length });
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
+  }
   const movementRoute = path.match(/^\/api\/movimentacoes\/(\d+)$/);
   if (movementRoute) {
     const id = Number(movementRoute[1]);
