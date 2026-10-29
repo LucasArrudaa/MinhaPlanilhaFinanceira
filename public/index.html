@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f7f5">
+  <meta name="description" content="Organize suas receitas, despesas, contas e investimentos em um só lugar.">
+  <title>Minha Planilha Financeira</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <section id="auth" class="auth-shell" hidden>
+    <div class="auth-brand"><span class="brand-mark">M</span><span>Minha Planilha Financeira</span></div>
+    <div class="auth-card">
+      <p class="eyebrow">SUAS FINANÇAS, COM CLAREZA</p>
+      <h1 id="auth-heading">Bem-vindo de volta</h1>
+      <p class="muted" id="auth-description">Entre para acompanhar sua vida financeira.</p>
+      <form id="auth-form">
+        <label id="name-row" hidden>Seu nome<input name="name" autocomplete="name" maxlength="80"></label>
+        <label>E-mail<input name="email" type="email" autocomplete="email" required></label>
+        <label>Senha<input name="password" type="password" autocomplete="current-password" minlength="10" required></label>
+        <button class="button button-primary full-width" id="auth-submit">Entrar</button>
+      </form>
+      <p class="auth-toggle"><span id="auth-toggle-copy">Ainda não tem uma conta?</span> <button class="text-button" id="auth-toggle" type="button">Criar conta</button></p>
+      <p class="auth-hint">Sua conta é privada. Seus dados ficam protegidos e separados.</p>
+    </div>
+  </section>
+
+  <div id="application" class="app-shell" hidden>
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#" data-page="painel"><span class="brand-mark">M</span><span>Minha Planilha<br><small>Financeira</small></span></a>
+      <p class="nav-caption">SEU ESPAÇO</p>
+      <nav class="main-nav" aria-label="Navegação principal">
+        <button data-page="planilha" class="nav-link active"><span>▦</span>Planilha</button>
+        <button data-page="painel" class="nav-link"><span>◫</span>Meu controle financeiro</button>
+        <button data-page="receitas" class="nav-link"><span>↗</span>Receitas</button>
+        <button data-page="despesas" class="nav-link"><span>↙</span>Despesas</button>
+        <button data-page="movimentacoes" class="nav-link"><span>⇄</span>Movimentações</button>
+        <button data-page="investimentos" class="nav-link"><span>◈</span>Investimentos</button>
+        <button data-page="contas" class="nav-link"><span>▣</span>Contas financeiras</button>
+        <button data-page="historico" class="nav-link"><span>◷</span>Histórico financeiro</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <button data-page="configuracoes" class="nav-link"><span>⚙</span>Configurações</button>
+        <div class="user-mini"><span class="avatar" id="avatar">U</span><span><b id="user-name">Minha conta</b><small>Finanças pessoais</small></span><button id="logout" class="icon-button" aria-label="Sair da conta" title="Sair da conta">↪</button></div>
+      </div>
+    </aside>
+    <main class="main-area">
+      <header class="topbar">
+        <button id="menu-toggle" class="icon-button mobile-menu" aria-label="Abrir menu">☰</button>
+        <div class="breadcrumb"><span>Meu espaço</span><b>/</b><strong id="page-title">Meu controle financeiro</strong></div>
+        <div class="top-actions"><button class="button button-primary new-movement" aria-label="Nova movimentação" title="Nova movimentação">＋ Nova movimentação</button><button id="theme-toggle" class="icon-button theme-toggle" aria-label="Alternar tema" title="Alternar tema">☾</button></div>
+      </header>
+      <div id="notice" class="notice" role="status" aria-live="polite"></div>
+      <section id="page-content" class="page-content" aria-live="polite"></section>
+    </main>
+  </div>
+  <dialog id="form-dialog" class="form-dialog"><form id="data-form" method="dialog"></form></dialog>
+</body>
+</html>
