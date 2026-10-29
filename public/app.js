@@ -213,22 +213,23 @@ function drawChart(data) {
     ctx.textAlign = 'center'; ctx.fillText(item.month.slice(5), x, height - 12);
   });
 
-  async function importSpreadsheet() {
-    accounts = await api('/api/contas');
-    if (!accounts.length) {
-      notify('Cadastre uma conta financeira antes de importar os lançamentos.', true);
-      return;
-    }
-    const fields = `<label class="wide">Conta para os lançamentos<select name="account_id" required>${accountOptions()}</select></label>
-      <label class="wide">Arquivo CSV<input name="file" type="file" accept=".csv,text/csv" required><small>Colunas obrigatórias: tipo; descrição; categoria; valor. Datas podem ficar em branco e serão registradas na data da importação.</small></label>`;
-    openDialog('Importar planilha CSV', fields, 'Importar lançamentos', async (body) => {
-      const file = dataForm.elements.file.files[0];
-      if (!file) throw new Error('Escolha um arquivo CSV para importar.');
-      if (file.size > 1_000_000) throw new Error('O arquivo ultrapassa o limite de 1 MB.');
-      const movements = parseImportCsv(await file.text()).map((item) => ({ ...item, account_id: body.account_id }));
-      return api('/api/importacao', { method: 'POST', body: JSON.stringify({ movements }) });
-    });
+}
+
+async function importSpreadsheet() {
+  accounts = await api('/api/contas');
+  if (!accounts.length) {
+    notify('Cadastre uma conta financeira antes de importar os lançamentos.', true);
+    return;
   }
+  const fields = `<label class="wide">Conta para os lançamentos<select name="account_id" required>${accountOptions()}</select></label>
+    <label class="wide">Arquivo CSV<input name="file" type="file" accept=".csv,text/csv" required><small>Colunas obrigatórias: tipo; descrição; categoria; valor. Datas podem ficar em branco e serão registradas na data da importação.</small></label>`;
+  openDialog('Importar planilha CSV', fields, 'Importar lançamentos', async (body) => {
+    const file = dataForm.elements.file.files[0];
+    if (!file) throw new Error('Escolha um arquivo CSV para importar.');
+    if (file.size > 1_000_000) throw new Error('O arquivo ultrapassa o limite de 1 MB.');
+    const movements = parseImportCsv(await file.text()).map((item) => ({ ...item, account_id: body.account_id }));
+    return api('/api/importacao', { method: 'POST', body: JSON.stringify({ movements }) });
+  });
 }
 
 async function renderMovements(type) {
